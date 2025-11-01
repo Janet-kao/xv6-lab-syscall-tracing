@@ -126,6 +126,7 @@ UPROGS=\
 	$U/_cat\
 	$U/_echo\
 	$U/_forktest\
+	$U/_find\
 	$U/_grep\
 	$U/_init\
 	$U/_kill\
@@ -139,8 +140,9 @@ UPROGS=\
 	$U/_grind\
 	$U/_wc\
 	$U/_zombie\
+	$U/_strace\
 
-UPROGS += _find
+UPROGS += $U/_find
 
 
 fs.img: mkfs/mkfs README $(UPROGS)

@@ -94,6 +94,9 @@ struct proc {
 
   // wait_lock must be held when using this:
   struct proc *parent;         // Parent process
+  
+  // new: tracing flag
+  int traced;                // 1 = 正在被追蹤, 0 = 未追蹤
 
   // these are private to the process, so p->lock need not be held.
   uint64 kstack;               // Virtual address of kernel stack

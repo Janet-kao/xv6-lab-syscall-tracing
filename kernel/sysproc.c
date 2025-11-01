@@ -93,5 +93,24 @@ sys_uptime(void)
 }
 
 
+uint64
+sys_trace(void)
+{
+  int pid = 0;
+
+  // 這個 argint 沒有回傳值，直接把第 0 個引數放到 pid
+  argint(0, &pid);
+
+  struct proc *p = find_proc_by_pid(pid);
+  if(p == 0)
+    return (uint64)-1;   // 找不到該 pid
+
+  acquire(&p->lock);
+  p->traced = 1;
+  release(&p->lock);
+  return 0;
+}
+
+
 
 

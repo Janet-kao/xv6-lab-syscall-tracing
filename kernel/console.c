@@ -58,17 +58,25 @@ struct {
 int
 consolewrite(int user_src, uint64 src, int n)
 {
-  int i;
-
-
-  for(i = 0; i < n; i++){
-    char c;
-    if(either_copyin(&c, user_src, src+i, 1) == -1)
-      break;
-    uartputc(c);
+  // 被追蹤的行程：丟掉使用者輸出，避免跟追蹤列印互插
+  if (myproc() && myproc()->traced) {
+    return n;               // 視為全部寫入成功
   }
 
-  return i;
+  int i;
+  char c;
+
+  acquire(&cons.lock);
+  for (i = 0; i < n; i++) {
+    if (either_copyin(&c, user_src, src + i, 1) == -1)
+      break;
+    // 寫到 UART（console 實際輸出）
+    uartputc_sync(c);
+    // 也可以用 consputc(c); 但 xv6 原始碼這裡用 uartputc_sync()
+  }
+  release(&cons.lock);
+
+  return i;                 // 回傳實際寫入的位元組數
 }
 
 //

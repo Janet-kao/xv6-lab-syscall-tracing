@@ -591,6 +591,20 @@ wakeup(void *chan)
     }
   }
 }
+struct proc*
+find_proc_by_pid(int pid)
+{
+  struct proc *p;
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if(p->pid == pid){
+      release(&p->lock);
+      return p;   // 找到了就回傳該 proc 指標
+    }
+    release(&p->lock);
+  }
+  return 0;       // 沒找到，回傳 NULL
+}
 
 // Kill the process with the given pid.
 // The victim won't exit until it tries to return

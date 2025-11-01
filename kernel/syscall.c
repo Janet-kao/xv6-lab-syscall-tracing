@@ -8,6 +8,31 @@
 #include "defs.h"
 
 
+static char *syscall_names[] = {
+  [SYS_fork]    = "fork",
+  [SYS_exit]    = "exit",
+  [SYS_wait]    = "wait",
+  [SYS_pipe]    = "pipe",
+  [SYS_read]    = "read",
+  [SYS_kill]    = "kill",
+  [SYS_exec]    = "exec",
+  [SYS_fstat]   = "fstat",
+  [SYS_chdir]   = "chdir",
+  [SYS_dup]     = "dup",
+  [SYS_getpid]  = "getpid",
+  [SYS_sbrk]    = "sbrk",
+  [SYS_sleep]   = "sleep",
+  [SYS_uptime]  = "uptime",
+  [SYS_open]    = "open",
+  [SYS_write]   = "write",
+  [SYS_mknod]   = "mknod",
+  [SYS_unlink]  = "unlink",
+  [SYS_link]    = "link",
+  [SYS_mkdir]   = "mkdir",
+  [SYS_close]   = "close",
+  [SYS_trace]   = "trace",
+};
+
 // Fetch the uint64 at addr from the current process.
 int
 fetchaddr(uint64 addr, uint64 *ip)
@@ -102,6 +127,7 @@ extern uint64 sys_unlink(void);
 extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
+extern uint64 sys_trace(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -127,28 +153,65 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
+[SYS_trace]   sys_trace,
 };
-
-
-
-
 
 void
 syscall(void)
 {
   int num;
   struct proc *p = myproc();
-
   num = p->trapframe->a7;
+
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
-    // Use num to lookup the system call function for num, call it,
-    // and store its return value in p->trapframe->a0
-    p->trapframe->a0 = syscalls[num]();
+
+    // 先記錄第一個參數（從 a0 暫存器）
+    uint64 arg0 = p->trapframe->a0;
+
+    // 執行真正的系統呼叫，回傳值放回 trapframe->a0
+    uint64 ret = syscalls[num]();
+
+    if(p->traced) {
+      printf("[pid %d] %s(", p->pid, syscall_names[num]);
+
+      if(num == SYS_open || num == SYS_unlink ||
+         num == SYS_chdir || num == SYS_mkdir || num == SYS_link) {
+        // 第一個參數是字串
+        char buf[128];
+        if(fetchstr(arg0, buf, sizeof(buf)) >= 0)
+          printf("\"%s\"", buf);
+        else
+          printf("<bad ptr>");
+      } else if(num == SYS_exec) {
+        // exec(path, argv)；要印 argv[0] 的字串
+        char prog[128];
+        uint64 argv_ptr = p->trapframe->a1;   // a1 = argv
+        uint64 argv0_ptr = 0;
+
+        if(argv_ptr == 0 || fetchaddr(argv_ptr, &argv0_ptr) < 0)
+          printf("<bad ptr>");
+        else if(argv0_ptr == 0)
+          printf("\"\"");                     // 空的 argv[0]
+        else if(fetchstr(argv0_ptr, prog, sizeof(prog)) < 0)
+          printf("<bad ptr>");
+        else
+          printf("\"%s\"", prog);
+      } else {
+        // 其他：第一個參數當整數輸出
+        printf("%d", (int)arg0);
+      }
+
+      // 收尾：印回傳值
+      printf(") = %d\n", (int)ret);
+    }
+
+    p->trapframe->a0 = ret;
+
   } else {
-    printf("%d %s: unknown sys call %d\n",
-            p->pid, p->name, num);
+    printf("%d %s: unknown sys call %d\n", p->pid, p->name, num);
     p->trapframe->a0 = -1;
   }
 }
+
 
 
